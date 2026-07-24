@@ -12,8 +12,8 @@ _NATIVE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _NATIVE_DIR)
 
 import nativecam_core.feature as feat
-feat.NCAM_DIR = os.path.join(os.path.dirname(_NATIVE_DIR), 'NativeCAM')
-feat.SYS_DIR = feat.NCAM_DIR
+feat.NCAM_DIR = _NATIVE_DIR
+feat.SYS_DIR = _NATIVE_DIR
 
 from nativecam_core.feature import Feature, search_path
 from nativecam_core.menu_loader import MenuLoader

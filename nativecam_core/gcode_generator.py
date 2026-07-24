@@ -6,6 +6,7 @@ Ported from NativeCAM ncam.py to_gcode() and action_build() methods.
 
 import os
 import xml.etree.ElementTree as ET
+import re
 
 from .feature import Feature, search_path, NCAM_DIR
 from .preferences import Preferences
@@ -50,13 +51,15 @@ class GCodeGenerator:
             gcode_def += d
 
         if self.pref.use_pct:
-            return (self.pref.default + gcode_def +
+            result = (self.pref.default + gcode_def +
                     "(end sub definitions)\n\n" +
                     gcode + self.pref.ngc_post_amble + '\n%\n')
         else:
-            return (self.pref.default + gcode_def +
+            result = (self.pref.default + gcode_def +
                     "(end sub definitions)\n\n" +
                     gcode + self.pref.ngc_post_amble + '\nM2\n')
+
+        return self._resolve_globals(result)
 
     def _recursive(self, xml_element, leader):
         """Recursively process an XML element and its children."""
@@ -108,3 +111,25 @@ class GCodeGenerator:
         for f in features:
             xml.append(f.to_xml())
         return xml
+
+    @staticmethod
+    def _resolve_globals(gcode):
+        """Replace #<_xxx> named parameter references with their literal values.
+
+        The qtpyvcp backplot parser cannot evaluate global named parameters,
+        causing 'zero feed rate' errors on F#<_rough_feed> style references.
+        This post-processing pass resolves known assignments to literals.
+        """
+        # Collect assignments: #<_name> = value
+        assigned = {}
+        for m in re.finditer(r'#<(\w+)>\s*=\s*(\S+)', gcode):
+            name, val = m.group(1), m.group(2)
+            if name not in assigned:
+                assigned[name] = val
+
+        # Replace references (but not the assignments themselves)
+        for name, val in assigned.items():
+            # Match #<name> only when not followed by = (the assignment side)
+            gcode = re.sub(r'#<' + re.escape(name) + r'>(?!\s*=)', val, gcode)
+
+        return gcode

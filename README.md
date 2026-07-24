@@ -28,27 +28,17 @@ with qtpyvcp and Probe Basic.
 ## Directory structure
 
 ```
-../                              # Workspace root
-├── NativeCAM/                   # Original NativeCAM (cfg, lib, graphics)
-├── nativecam/                   # ← this project
-│   ├── README.md
-│   ├── nativecam.py             # UserTab QWidget
-│   ├── nativecam.ui             # Qt Designer layout
-│   └── nativecam_core/          # Extracted data model
-│       ├── parameter.py         # Parameter class
-│       ├── feature.py           # Feature: cfg loader, G-code templates
-│       ├── menu_loader.py       # Catalog menu.xml parser
-│       ├── gcode_generator.py   # Tree → G-code compiler
-│       └── preferences.py       # Metric/imperial, config
-├── probe_basic/
-│   └── configs/
-│       ├── probe_basic/
-│       │   └── user_tabs/
-│       │       └── nativecam → ../../../nativecam  (symlink)
-│       └── probe_basic_lathe/
-│           └── user_tabs/
-│               └── nativecam → ../../../nativecam  (symlink)
-└── qtpyvcp/
+.
+├── README.md
+├── nativecam.py                 # UserTab QWidget
+├── nativecam.ui                 # Qt Designer layout
+└── nativecam_core/              # Extracted data model
+    ├── __init__.py
+    ├── parameter.py             # Parameter class
+    ├── feature.py               # Feature: cfg loader, G-code templates
+    ├── menu_loader.py           # Catalog menu.xml parser
+    ├── gcode_generator.py       # Tree → G-code compiler
+    └── preferences.py           # Metric/imperial, config
 ```
 
 ## Installation

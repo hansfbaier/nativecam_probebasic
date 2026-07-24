@@ -1,0 +1,153 @@
+"""
+Preferences — configuration and state management.
+
+Ported from NativeCAM ncam.py Preferences class (lines 1949-2286).
+"""
+
+import os
+
+# Global state — these are set at runtime
+DEFAULT_METRIC = False      # Whether user interface is displayed in metric
+MACHINE_METRIC = True       # Whether machine operates in metric units
+DEFAULT_DIGITS = 4          # Default number of decimal places
+
+# Icon sizes (defaults, configurable)
+MENU_ICON_SIZE = 24
+TOOLBAR_ICON_SIZE = 24
+TREEVIEW_ICON_SIZE = 18
+ADD_MENU_ICON_SIZE = 24
+ADD_DLG_ICON_SIZE = 48
+QUICK_ACCESS_ICON_SIZE = 24
+
+
+class Preferences:
+    """Manages user preferences and machine configuration."""
+
+    def __init__(self):
+        self.cat_name = "mill"
+        self.has_z_axis = True
+        self.ngc_init_str = None
+        self.use_pct = True
+
+        # NGC file template strings
+        self.default = ""
+        self.ngc_post_amble = "M5\nM9\nM30\n"
+
+        # View preferences
+        self.restore_expand_state = True
+
+        # Excluded messages (suppress warnings)
+        self._excluded_messages = set()
+
+    def read(self, cat_name, pref_dir=None):
+        """Read preferences from config files."""
+        global DEFAULT_DIGITS, DEFAULT_METRIC, MENU_ICON_SIZE, TREEVIEW_ICON_SIZE
+        global TOOLBAR_ICON_SIZE, ADD_MENU_ICON_SIZE, ADD_DLG_ICON_SIZE
+        global QUICK_ACCESS_ICON_SIZE
+
+        self.cat_name = cat_name
+
+        # If no preference directory, use defaults
+        if pref_dir is None:
+            return
+
+        # Try to read config file
+        cfg_file = os.path.join(pref_dir, "ncam.conf")
+        if os.path.isfile(cfg_file):
+            import configparser
+            cf = configparser.ConfigParser()
+            cf.read(cfg_file)
+            self._read_config(cf)
+
+        # Try to read preferences file
+        pref_file = os.path.join(pref_dir, "default.conf")
+        if os.path.isfile(pref_file):
+            import configparser
+            cf = configparser.ConfigParser()
+            cf.read(pref_file)
+            self._read_preferences(cf)
+
+    def _read_config(self, cf):
+        """Read ncam.conf configuration."""
+        try:
+            if cf.has_option('DEFAULT', 'use_pct'):
+                self.use_pct = cf.getboolean('DEFAULT', 'use_pct')
+        except Exception:
+            pass
+
+    def _read_preferences(self, cf):
+        """Read default.conf preferences."""
+        global DEFAULT_DIGITS, DEFAULT_METRIC, MENU_ICON_SIZE, TREEVIEW_ICON_SIZE
+        global TOOLBAR_ICON_SIZE, ADD_MENU_ICON_SIZE, ADD_DLG_ICON_SIZE
+        global QUICK_ACCESS_ICON_SIZE
+
+        try:
+            if cf.has_option('preferences', 'default_digits'):
+                DEFAULT_DIGITS = cf.getint('preferences', 'default_digits')
+        except Exception:
+            pass
+
+        try:
+            if cf.has_option('preferences', 'default_metric'):
+                DEFAULT_METRIC = cf.getboolean('preferences', 'default_metric')
+        except Exception:
+            pass
+
+        try:
+            if cf.has_option('preferences', 'add_menu_icon_size'):
+                ADD_MENU_ICON_SIZE = cf.getint('preferences', 'add_menu_icon_size')
+        except Exception:
+            pass
+
+        try:
+            if cf.has_option('preferences', 'menu_icon_size'):
+                MENU_ICON_SIZE = cf.getint('preferences', 'menu_icon_size')
+        except Exception:
+            pass
+
+        try:
+            if cf.has_option('preferences', 'treeview_icon_size'):
+                TREEVIEW_ICON_SIZE = cf.getint('preferences', 'treeview_icon_size')
+        except Exception:
+            pass
+
+        try:
+            if cf.has_option('preferences', 'quick_access_icon_size'):
+                QUICK_ACCESS_ICON_SIZE = cf.getint('preferences', 'quick_access_icon_size')
+        except Exception:
+            pass
+
+        try:
+            if cf.has_option('preferences', 'toolbar_icon_size'):
+                TOOLBAR_ICON_SIZE = cf.getint('preferences', 'toolbar_icon_size')
+        except Exception:
+            pass
+
+        try:
+            if cf.has_option('preferences', 'add_dlg_icon_size'):
+                ADD_DLG_ICON_SIZE = cf.getint('preferences', 'add_dlg_icon_size')
+        except Exception:
+            pass
+
+    def add_excluded_msg(self, feature_type, msgid):
+        """Add a message to the exclusion list."""
+        key = "%s:msgid-%d" % (feature_type, msgid)
+        self._excluded_messages.add(key)
+
+    def is_msg_excluded(self, feature_type, msgid):
+        """Check if a message should be suppressed."""
+        key = "%s:msgid-%d" % (feature_type, msgid)
+        return ("ALL:msgid-0" in self._excluded_messages or
+                key in self._excluded_messages or
+                "%s:msgid-0" % feature_type in self._excluded_messages)
+
+    def set_machine_metric(self, metric):
+        """Set whether machine operates in metric units."""
+        global MACHINE_METRIC
+        MACHINE_METRIC = metric
+
+    def toggle_units(self):
+        """Toggle between metric and imperial display."""
+        global DEFAULT_METRIC
+        DEFAULT_METRIC = not DEFAULT_METRIC
+        return DEFAULT_METRIC

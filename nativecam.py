@@ -24,6 +24,7 @@ from qtpy.QtWidgets import (
 
 from qtpyvcp.plugins import getPlugin
 from qtpyvcp.utilities import logger
+from qtpyvcp.utilities.info import Info
 
 # Import core library — use sys.path since importlib loader breaks relative imports
 _TAB_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -41,6 +42,7 @@ LOG = logger.getLogger(__name__)
 
 STATUS = getPlugin('status')
 TOOL_TABLE = getPlugin('tooltable')
+INFO = Info()
 
 # Determine NCAM_DIR from environment or workspace
 # Use realpath: importlib loader may set __file__ to a symlink path
@@ -106,7 +108,7 @@ class UserTab(QWidget):
 
         # Initialize UI
         self._setup_ui()
-        self._load_catalog("mill")
+        self._set_catalog_from_machine()
         self._push_undo()
 
     def _setup_ui(self):
@@ -158,6 +160,25 @@ class UserTab(QWidget):
         self.pref.set_default_metric(metric)
 
     # --- Catalog loading ---
+
+    def _detect_machine_catalog(self):
+        """Detect mill/lathe/plasma from LinuxCNC INI."""
+        try:
+            if INFO.getIsLathe():
+                return "lathe"
+            if INFO.ini.find('PLASMAC', 'MACHINE') or INFO.ini.find('PLASMAC', 'PRESSURE'):
+                return "plasma"
+        except Exception as e:
+            LOG.debug("_detect_machine_catalog: failed: %s", e)
+        return "mill"
+
+    def _set_catalog_from_machine(self):
+        """Set catalog combo to match detected machine type."""
+        catalog = self._detect_machine_catalog()
+        label_map = {"mill": "Mill", "lathe": "Lathe", "plasma": "Plasma"}
+        label = label_map.get(catalog, "Mill")
+        LOG.debug("_set_catalog_from_machine: detected %s -> %s", catalog, label)
+        self.catalogCombo.setCurrentText(label)
 
     def _load_catalog(self, catalog_name):
         """Load and display a catalog menu."""

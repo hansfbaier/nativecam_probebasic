@@ -169,10 +169,7 @@ class Preferences:
             preamble += "#<_spindle_speed_up_delay>  = 1.0\n\n"
 
         if cat == 'lathe':
-            preamble += "#<_lathe_diameter_mode>     = 1  (0=radius, 1=diameter)\n"
-            preamble += "#<_diameter_mode>           = 2  (1=radius, 2=diameter)\n"
-            preamble += "#<_lathe_radius_mode>       = 0  (0=diameter, 1=radius)\n"
-            preamble += "#<_metric>                  = 1  (1=metric, 0=imperial)\n\n"
+            preamble += "#<_diameter_mode>           = [#<_lathe_diameter_mode> + 1]\n"
 
         preamble += "(end defaults)\n\n"
 

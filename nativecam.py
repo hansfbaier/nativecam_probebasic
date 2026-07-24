@@ -160,12 +160,14 @@ class UserTab(QWidget):
         return "mill"
 
     def _set_catalog_from_machine(self):
-        """Set catalog combo to match detected machine type."""
+        """Set catalog combo and load the detected catalog."""
         catalog = self._detect_machine_catalog()
         label_map = {"mill": "Mill", "lathe": "Lathe", "plasma": "Plasma"}
         label = label_map.get(catalog, "Mill")
         LOG.debug("_set_catalog_from_machine: detected %s -> %s", catalog, label)
         self.catalogCombo.setCurrentText(label)
+        # Explicitly load: signal may not fire if combo already matches default
+        self._load_catalog(catalog)
 
     def _load_catalog(self, catalog_name):
         """Load and display a catalog menu."""

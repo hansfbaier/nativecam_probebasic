@@ -28,17 +28,18 @@ with qtpyvcp and Probe Basic.
 ## Directory structure
 
 ```
-probebasic/
-├── NativeCAM/                    # Original NativeCAM (cfg, lib, graphics)
-├── nativecam/                    # Ported user tab (this project)
-│   ├── nativecam.py              # UserTab QWidget
-│   ├── nativecam.ui              # Qt Designer layout
-│   └── nativecam_core/           # Extracted data model
-│       ├── parameter.py          # Parameter class
-│       ├── feature.py            # Feature: cfg loader, G-code templates
-│       ├── menu_loader.py        # Catalog menu.xml parser
-│       ├── gcode_generator.py    # Tree → G-code compiler
-│       └── preferences.py        # Metric/imperial, config
+../                              # Workspace root
+├── NativeCAM/                   # Original NativeCAM (cfg, lib, graphics)
+├── nativecam/                   # ← this project
+│   ├── README.md
+│   ├── nativecam.py             # UserTab QWidget
+│   ├── nativecam.ui             # Qt Designer layout
+│   └── nativecam_core/          # Extracted data model
+│       ├── parameter.py         # Parameter class
+│       ├── feature.py           # Feature: cfg loader, G-code templates
+│       ├── menu_loader.py       # Catalog menu.xml parser
+│       ├── gcode_generator.py   # Tree → G-code compiler
+│       └── preferences.py       # Metric/imperial, config
 ├── probe_basic/
 │   └── configs/
 │       ├── probe_basic/
@@ -55,37 +56,29 @@ probebasic/
 1. Ensure Probe Basic and qtpyvcp are installed (see
    `probe_basic/install_for_qtpyvcp.sh`).
 
-2. The `nativecam/` directory is already symlinked into both mill and lathe
-   config `user_tabs/` directories.
+2. The `nativecam/` directory is symlinked into both mill and lathe config
+   `user_tabs/` directories.
 
-3. Enable user tabs in your `probe_basic.ini`:
+3. Enable user tabs in `probe_basic.ini`:
 
    ```ini
    [DISPLAY]
    USER_TABS_PATH = user_tabs/
    ```
 
-4. Add the NativeCAM subroutine libraries to LinuxCNC's search path
-   (in your `.ini` or through the `SUBROUTINE_PATH` setting):
+4. Add NativeCAM subroutine libraries to LinuxCNC's search path
+   (in your `.ini`):
 
    ```ini
    [RS274NGC]
    SUBROUTINE_PATH = subroutines:NativeCAM/lib/mill:NativeCAM/lib/utilities:NativeCAM/my-stuff
    ```
 
-5. Launch Probe Basic:
-
-   ```bash
-   cd probe_basic/configs/probe_basic
-   ./launch_probe_basic.sh
-   ```
-
-   The NativeCAM tab will appear alongside the other main tabs.
+5. Launch Probe Basic. The NativeCAM tab appears alongside the other main tabs.
 
 ## Development
 
-The core library is pure Python 3 with no Qt dependencies. You can test it
-standalone:
+The core library is pure Python 3 with no Qt dependencies. Test it standalone:
 
 ```bash
 cd /home/jack/CNC/probebasic
@@ -102,7 +95,7 @@ print(f.get_name(), f.get_type(), len(f.param), 'params')
 "
 ```
 
-To recompile Qt resources after changes:
+Recompile Qt resources after UI changes:
 
 ```bash
 cd probe_basic && qcompile .
@@ -110,10 +103,10 @@ cd probe_basic && qcompile .
 
 ## Known limitations
 
-- **ttt.py** (TrueType engraving) has been ported to Python 3 and is included
-  in `NativeCAM/ttt`, but requires the `truetype-tracer` system tool.
+- **ttt.py** (TrueType engraving) has been ported to Python 3 but requires
+  the `truetype-tracer` system tool.
 - The parameter editor does not yet support inline editing in the project tree
-  (the original GTK2 version used a `CellRenderer` for this).
+  (the original GTK2 version used a `CellRenderer`).
 - Sub-header grouping and linked combo-user parameters are partially supported.
 
 ## License

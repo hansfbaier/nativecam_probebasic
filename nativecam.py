@@ -59,6 +59,10 @@ for _ in range(5):
 if _feat_dir:
     feat.NCAM_DIR = _feat_dir
     feat.SYS_DIR = _feat_dir
+elif os.path.isdir(os.path.join(_HERE, 'cfg')):
+    # NativeCAM/ not found — nativecam/ is self-contained
+    feat.NCAM_DIR = _HERE
+    feat.SYS_DIR = _HERE
 
 
 class _FocusLostFilter(QObject):

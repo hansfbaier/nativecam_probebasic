@@ -120,9 +120,12 @@ class GCodeGenerator:
         causing 'zero feed rate' errors on F#<_rough_feed> style references.
         This post-processing pass resolves known assignments to literals.
         """
-        # Collect assignments: #<_name> = value
+        # Collect assignments with numeric literal values only.
+        # Expression values (containing brackets) must NOT be
+        # substituted because their partial capture would break
+        # bracket pairing in the target line.
         assigned = {}
-        for m in re.finditer(r'#<(\w+)>\s*=\s*(\S+)', gcode):
+        for m in re.finditer(r'#<(\w+)>\s*=\s*([-+]?\d+\.?\d*)', gcode):
             name, val = m.group(1), m.group(2)
             if name not in assigned:
                 assigned[name] = val

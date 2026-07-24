@@ -30,7 +30,8 @@ _TAB_DIR = os.path.dirname(os.path.abspath(__file__))
 if _TAB_DIR not in sys.path:
     sys.path.insert(0, _TAB_DIR)
 
-from nativecam_core.feature import Feature, NCAM_DIR, SYS_DIR, search_path
+import nativecam_core.feature as feat
+from nativecam_core.feature import Feature, search_path
 from nativecam_core.menu_loader import MenuLoader
 from nativecam_core.gcode_generator import GCodeGenerator, GENERATED_FILE
 from nativecam_core.parameter import Parameter
@@ -42,15 +43,20 @@ STATUS = getPlugin('status')
 TOOL_TABLE = getPlugin('tooltable')
 
 # Determine NCAM_DIR from environment or workspace
-# __file__ is .../probebasic/nativecam/nativecam.py
-# Walk up 2 levels to project root, then into NativeCAM/
-_NATIVE_CAM_ROOT = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)),
-    'NativeCAM'
-)
-if os.path.isdir(_NATIVE_CAM_ROOT):
-    NCAM_DIR = _NATIVE_CAM_ROOT
-    SYS_DIR = _NATIVE_CAM_ROOT
+# Use realpath: importlib loader may set __file__ to a symlink path
+_HERE = os.path.dirname(os.path.realpath(__file__))
+# Walk up until we find NativeCAM/ (sibling of workspace root)
+_feat_dir = None
+_d = _HERE
+for _ in range(5):
+    _test = os.path.join(_d, 'NativeCAM')
+    if os.path.isdir(_test):
+        _feat_dir = _test
+        break
+    _d = os.path.dirname(_d)
+if _feat_dir:
+    feat.NCAM_DIR = _feat_dir
+    feat.SYS_DIR = _feat_dir
 
 
 class _FocusLostFilter(QObject):
@@ -137,7 +143,7 @@ class UserTab(QWidget):
 
         try:
             self._menu_hierarchy = []
-            self.menu_loader.load(catalog_name, ncam_dir=NCAM_DIR)
+            self.menu_loader.load(catalog_name, ncam_dir=feat.NCAM_DIR)
             self._menu_hierarchy = self.menu_loader.get_menu_hierarchy()
             self._build_catalog_tree(self.catalogTree, self._menu_hierarchy)
             self.catalogTree.expandAll()
@@ -172,8 +178,8 @@ class UserTab(QWidget):
 
     def _set_item_icon(self, item, icon_name):
         """Load and set an icon for a tree item."""
-        if NCAM_DIR:
-            icon_path = os.path.join(NCAM_DIR, 'graphics', icon_name)
+        if feat.NCAM_DIR:
+            icon_path = os.path.join(feat.NCAM_DIR, 'graphics', icon_name)
             if os.path.isfile(icon_path):
                 item.setIcon(0, QIcon(icon_path))
 
@@ -330,8 +336,8 @@ class UserTab(QWidget):
                 Qt.ItemIsDragEnabled | Qt.ItemIsDropEnabled
             )
             icon = feature.get_icon()
-            if icon and NCAM_DIR:
-                icon_path = os.path.join(NCAM_DIR, 'graphics', icon)
+            if icon and feat.NCAM_DIR:
+                icon_path = os.path.join(feat.NCAM_DIR, 'graphics', icon)
                 if os.path.isfile(icon_path):
                     item.setIcon(0, QIcon(icon_path))
             self._feature_items[id(item)] = feature
@@ -592,10 +598,10 @@ class UserTab(QWidget):
     def _load_into_linuxcnc(self, gcode):
         """Load generated G-code into LinuxCNC."""
         output_path = None
-        if NCAM_DIR:
+        if feat.NCAM_DIR:
             import nativecam_core.gcode_generator as gg
-            gg.NCAM_DIR = NCAM_DIR
-            nc_dir = os.path.join(NCAM_DIR, gg.NGC_DIR)
+            gg.NCAM_DIR = feat.NCAM_DIR
+            nc_dir = os.path.join(feat.NCAM_DIR, gg.NGC_DIR)
         else:
             nc_dir = os.path.join(
                 os.path.expanduser("~"), "nativecam", "scripts"

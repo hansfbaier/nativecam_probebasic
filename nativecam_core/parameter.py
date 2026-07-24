@@ -9,7 +9,7 @@ import locale
 import re
 import xml.etree.ElementTree as ET
 
-from .preferences import DEFAULT_METRIC, DEFAULT_DIGITS
+from . import preferences as _pref
 
 # Supported data types for parameters
 SUPPORTED_DATA_TYPES = [
@@ -102,7 +102,7 @@ class Parameter:
     def get_value(self, editor=False):
         """Get display value (metric-converted if applicable)."""
         if self.get_type() == 'float':
-            if DEFAULT_METRIC and "metric_value" in self.attr:
+            if _pref.DEFAULT_METRIC and "metric_value" in self.attr:
                 return _get_string(_get_float(self.attr["value"]) * 25.4, 6, editor)
             else:
                 return _get_string(_get_float(self.attr["value"]), 6, editor)
@@ -111,12 +111,11 @@ class Parameter:
 
     def get_ngc_value(self):
         """Get the value for NGC (G-code) output (machine units)."""
-        from .preferences import MACHINE_METRIC
         if self.get_type() == 'gcode':
             val = self.attr.get("value", "")
             return val if val != '' else '0'
         if self.get_type() == 'float':
-            if MACHINE_METRIC and "metric_value" in self.attr:
+            if _pref.MACHINE_METRIC and "metric_value" in self.attr:
                 return _get_string(_get_float(self.attr["value"]) * 25.4, 6, False)
             else:
                 return _get_string(_get_float(self.attr["value"]), 6, False)
@@ -126,7 +125,7 @@ class Parameter:
     def get_display_string(self):
         """Get human-readable display string."""
         if self.get_type() == "float":
-            if DEFAULT_METRIC and "metric_value" in self.attr:
+            if _pref.DEFAULT_METRIC and "metric_value" in self.attr:
                 return _get_string(_get_float(self.attr["value"]) * 25.4, self.get_digits())
             else:
                 return _get_string(_get_float(self.attr["value"]), self.get_digits())
@@ -143,7 +142,7 @@ class Parameter:
             return False
         if not done:
             if self.get_type() == "float":
-                factor = 25.4 if (DEFAULT_METRIC and "metric_value" in self.attr) else 1
+                factor = 25.4 if (_pref.DEFAULT_METRIC and "metric_value" in self.attr) else 1
                 new_val = _get_string(_get_float(new_val) / factor, 10, False)
                 old_val = _get_string(_get_float(self.attr["value"]), 10, False)
             else:
@@ -164,7 +163,7 @@ class Parameter:
     def set_type(self, new_type):
         self.attr['old_type'] = self.attr['type']
         self.attr['type'] = new_type
-        if new_type == 'gcode' and DEFAULT_METRIC and "metric_value" in self.attr:
+        if new_type == 'gcode' and _pref.DEFAULT_METRIC and "metric_value" in self.attr:
             self.attr["value"] = self.attr["metric_value"]
 
     def revert_type(self):
@@ -208,21 +207,21 @@ class Parameter:
         if self.get_type() == 'int':
             return 0
         else:
-            digits = self.attr.get("digits", DEFAULT_DIGITS)
-            return int(digits) if digits else DEFAULT_DIGITS
+            digits = self.attr.get("digits", _pref.DEFAULT_DIGITS)
+            return int(digits) if digits else _pref.DEFAULT_DIGITS
 
     def set_digits(self, new_digits):
         self.attr["digits"] = str(new_digits)
 
     def get_min_value(self):
         min_v = self.attr.get("minimum_value", "-999999.9")
-        if self.get_type() == 'float' and DEFAULT_METRIC and 'metric_value' in self.attr:
+        if self.get_type() == 'float' and _pref.DEFAULT_METRIC and 'metric_value' in self.attr:
             return str(_get_float(min_v) * 25.4)
         return min_v
 
     def get_max_value(self):
         max_v = self.attr.get("maximum_value", "999999.9")
-        if self.get_type() == 'float' and DEFAULT_METRIC and 'metric_value' in self.attr:
+        if self.get_type() == 'float' and _pref.DEFAULT_METRIC and 'metric_value' in self.attr:
             return str(_get_float(max_v) * 25.4)
         return max_v
 

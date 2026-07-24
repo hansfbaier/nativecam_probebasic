@@ -27,7 +27,7 @@ from qtpyvcp.utilities import logger
 from qtpyvcp.utilities.info import Info
 
 # Import core library — use sys.path since importlib loader breaks relative imports
-_TAB_DIR = os.path.dirname(os.path.abspath(__file__))
+_TAB_DIR = os.path.dirname(os.path.realpath(__file__))
 if _TAB_DIR not in sys.path:
     sys.path.insert(0, _TAB_DIR)
 
@@ -90,15 +90,10 @@ class UserTab(QWidget):
         self._undo_pos = -1          # Current undo position
         self._param_widgets = {}     # Current parameter editor widgets
 
-        # Preferences — sync with machine units
+        # Preferences — sync with machine units at startup
         self.pref = Preferences()
         self.pref.read("mill")
         self._sync_units()
-        # Subscribe to unit changes so display stays in sync
-        try:
-            STATUS.linear_units.signal.connect(self._on_units_changed)
-        except Exception:
-            pass
 
         # Menu loader
         self.menu_loader = MenuLoader()
@@ -110,6 +105,9 @@ class UserTab(QWidget):
         self._setup_ui()
         self._set_catalog_from_machine()
         self._push_undo()
+
+        # Delay unit sync until STATUS has polled LinuxCNC
+        QTimer.singleShot(500, self._sync_units)
 
     def _setup_ui(self):
         """Wire up UI signals."""
@@ -132,32 +130,21 @@ class UserTab(QWidget):
         self.catalogTree.setColumnCount(1)
         self.projectTree.setColumnCount(1)
 
-        # Timer for auto-refresh
-        self._auto_refresh_timer = QTimer(self)
-        self._auto_refresh_timer.timeout.connect(self._on_auto_refresh)
-        self.autoRefreshCheck.toggled.connect(self._on_auto_refresh_toggled)
-
     # --- Units ---
 
     def _sync_units(self):
-        """Sync preferences with current LinuxCNC machine linear units."""
+        """Sync preferences with current LinuxCNC machine linear units.
+
+        LinuxCNC linear_units: 1.0 = mm, 1/25.4 ≈ 0.039 = inch, 0.0 = N/A.
+        """
         try:
-            # STAT.linear_units: 1.0 = mm, 1/25.4 (~0.03937) = inch, 0.0 = N/A
-            metric = STATUS.stat.linear_units == 2
-            self.pref.set_machine_metric(metric)
-            self.pref.set_default_metric(metric)
-            LOG.debug("_sync_units: metric=%s (linear_units=%s)",
-                      metric, STATUS.stat.linear_units)
+            is_mm = float(STATUS.stat.linear_units) >= 0.5
+            self.pref.set_machine_metric(is_mm)
+            self.pref.set_default_metric(is_mm)
+            LOG.debug("_sync_units: is_mm=%s (linear_units=%s)",
+                      is_mm, STATUS.stat.linear_units)
         except Exception as e:
             LOG.debug("_sync_units: failed: %s", e)
-
-    def _on_units_changed(self, value):
-        """Callback when machine linear units change mid-session."""
-        # value is the raw DataChannel signal payload (float)
-        metric = float(value) >= 0.5  # 1.0 for mm, ~0.039 for inch
-        LOG.debug("_on_units_changed: signal=%s metric=%s", value, metric)
-        self.pref.set_machine_metric(metric)
-        self.pref.set_default_metric(metric)
 
     # --- Catalog loading ---
 
@@ -199,7 +186,6 @@ class UserTab(QWidget):
         """Recursively build the catalog QTreeWidget from menu hierarchy."""
         for entry in items:
             if entry['is_menu']:
-                # Submenu
                 item = QTreeWidgetItem(parent)
                 item.setText(0, entry['name'])
                 if entry['icon']:
@@ -207,13 +193,11 @@ class UserTab(QWidget):
                 item.setFlags(item.flags() & ~Qt.ItemIsDragEnabled)
                 self._build_catalog_tree(item, entry['children'])
             elif entry['src']:
-                # Feature (has a .cfg file)
                 item = QTreeWidgetItem(parent)
                 item.setText(0, entry['name'])
                 item.setToolTip(0, entry.get('tool_tip', ''))
                 if entry['icon']:
                     self._set_item_icon(item, entry['icon'])
-                # Store action and src for adding to project
                 item.setData(0, Qt.UserRole, {
                     'action': entry['action'],
                     'src': entry['src'],
@@ -229,10 +213,9 @@ class UserTab(QWidget):
     def _on_catalog_changed(self, text):
         """Handle catalog combo box change."""
         catalog_map = {"Mill": "mill", "Lathe": "lathe", "Plasma": "plasma"}
-        cat_name = catalog_map.get(text, "mill")
+        cat_name = catalog_map.get(text, "lathe")
         self._load_catalog(cat_name)
         self.pref.read(cat_name)
-        self._sync_units()  # re-apply machine units after catalog re-read
 
     # --- Project management ---
 
@@ -255,21 +238,17 @@ class UserTab(QWidget):
             return
 
         try:
-            # Load feature from cfg
             feature = Feature(src=cfg_path)
 
-            # Assign unique ID
             xml = self._features_to_xml()
             feature.get_id(xml)
 
-            # Add to project
             self._features.append(feature)
-            LOG.debug("_on_add_feature: added %s (id=%s, type=%s)",
-                      feature.get_name(), id(feature), feature.get_type())
+            LOG.info("ADD_FEATURE: %s feat_id=%s",
+                     feature.get_name(), id(feature))
             self._rebuild_project_tree()
             self._push_undo()
 
-            # Select the new feature
             last_item = self.projectTree.topLevelItem(
                 self.projectTree.topLevelItemCount() - 1
             )
@@ -306,15 +285,12 @@ class UserTab(QWidget):
         if feature is None:
             return
 
-        # Deep copy the feature
         xml_copy = copy.deepcopy(feature.to_xml())
         new_feature = Feature(xml=xml_copy)
 
-        # Assign new ID
         xml = self._features_to_xml()
         new_feature.get_id(xml)
 
-        # Insert after current
         idx = self._features.index(feature)
         self._features.insert(idx + 1, new_feature)
         self._rebuild_project_tree()
@@ -354,7 +330,6 @@ class UserTab(QWidget):
 
     def _on_rows_moved(self):
         """Handle drag-drop reordering in project tree."""
-        # Rebuild features list from tree order
         new_features = []
         for i in range(self.projectTree.topLevelItemCount()):
             item = self.projectTree.topLevelItem(i)
@@ -398,12 +373,12 @@ class UserTab(QWidget):
 
         feature = self._feature_items.get(id(current))
         if feature:
-            LOG.debug("_on_project_selection: selected %s (id=%s, params=%d)",
-                      feature.get_name(), id(feature), len(feature.param))
+            LOG.info("SELECT: %s feat_id=%s",
+                     feature.get_name(), id(feature))
             self._current_feature = feature
             self._build_parameter_editor(feature)
         else:
-            LOG.debug("_on_project_selection: feature not found for item id=%s", id(current))
+            LOG.debug("SELECT: feature not found for item")
 
     def _select_feature(self, feature):
         """Select a specific feature in the project tree."""
@@ -424,9 +399,7 @@ class UserTab(QWidget):
 
         for p in feature.param:
             p_type = p.get_type()
-            header = p.get_header() or ''
 
-            # Handle headers
             if p_type in ('header', 'sub-header'):
                 if p_type == 'header':
                     lbl = QLabel("<b>%s</b>" % p.get_name())
@@ -435,11 +408,9 @@ class UserTab(QWidget):
                 layout.addWidget(lbl)
                 continue
 
-            # Skip hidden params
             if p.get_hidden():
                 continue
 
-            # Create widget based on type
             row = QHBoxLayout()
             name_lbl = QLabel(p.get_name())
             name_lbl.setToolTip(p.get_tooltip())
@@ -458,6 +429,10 @@ class UserTab(QWidget):
         """Create the appropriate Qt widget for a parameter."""
         p_type = param.get_type()
         value = param.get_display_string()
+        if p_type in ('float', 'int'):
+            LOG.info("WIDGET: %s %s display=%s raw=%s",
+                     param.get_call(), param.get_name(),
+                     value, param.attr.get('value', '?'))
 
         if p_type == 'bool':
             w = QCheckBox()
@@ -567,7 +542,6 @@ class UserTab(QWidget):
             return w
 
         else:
-            # Default: string line edit
             w = QLineEdit()
             w.setText(str(value))
             w.textChanged.connect(
@@ -583,9 +557,9 @@ class UserTab(QWidget):
             return
         old_raw = param.attr.get('value', '?')
         ok = param.set_value(new_value, feature)
-        LOG.debug("_on_param_changed: %s %s old=%s new=%s ok=%s feat=%s",
-                  param.get_call(), param.get_name(), old_raw, new_value, ok,
-                  feature.get_name())
+        LOG.info("PARAM_CHG: %s %s old=%s new=%s ok=%s",
+                 param.get_call(), param.get_name(),
+                 old_raw, new_value, ok)
         if ok:
             self._push_undo()
             if param.get_name() == 'Name' or param.get_call() == '#param_name':
@@ -617,20 +591,19 @@ class UserTab(QWidget):
 
     def _on_build(self):
         """Generate G-code and show preview."""
+        self._sync_units()
         try:
-            # Log current feature values for debugging
             for f in self._features:
                 for p in f.param:
                     if p.get_type() in ('float', 'int', 'combo', 'bool'):
-                        LOG.debug("build: %s %s = %s", f.get_name(),
-                                  p.get_call(), p.attr.get('value', '?'))
+                        LOG.info("BUILD: %s %s = %s (feat_id=%s)",
+                                 f.get_name(), p.get_call(),
+                                 p.attr.get('value', '?'), id(f))
             xml = self._features_to_xml()
             gcode = self.generator.generate(xml)
-            self.gcodePreview.setPlainText(gcode)
-
-            # If auto-refresh is on, load into LinuxCNC
-            if self.autoRefreshCheck.isChecked():
-                self._load_into_linuxcnc(gcode)
+            if gcode:
+                self.gcodePreview.setPlainText(gcode)
+            self._load_into_linuxcnc(gcode)
         except Exception as e:
             LOG.error("Build failed: %s", e)
             QMessageBox.critical(self, "Build Error",
@@ -640,6 +613,11 @@ class UserTab(QWidget):
         """Export G-code to file."""
         xml = self._features_to_xml()
         gcode = self.generator.generate(xml)
+
+        if not gcode:
+            QMessageBox.warning(self, "Export Error",
+                                "Build first to generate G-code.")
+            return
 
         filename, _ = QFileDialog.getSaveFileName(
             self, "Export G-code",
@@ -659,24 +637,19 @@ class UserTab(QWidget):
                                      "Could not write file:\n%s" % e)
 
     def _load_into_linuxcnc(self, gcode):
-        """Load generated G-code into LinuxCNC."""
-        output_path = None
-        if feat.NCAM_DIR:
-            import nativecam_core.gcode_generator as gg
-            gg.NCAM_DIR = feat.NCAM_DIR
-            nc_dir = os.path.join(feat.NCAM_DIR, gg.NGC_DIR)
-        else:
-            nc_dir = os.path.join(
-                os.path.expanduser("~"), "nativecam", "scripts"
-            )
+        """Load generated G-code into LinuxCNC.
 
-        os.makedirs(nc_dir, exist_ok=True)
-        output_path = os.path.join(nc_dir, GENERATED_FILE)
+        Writes the file into LinuxCNC's PROGRAM_PREFIX directory (nc_files)
+        so that program_open() can find it.
+        """
+        exp_home = os.path.expanduser("~")
+        out_dir = os.path.join(exp_home, "linuxcnc", "nc_files", "nativecam")
+        os.makedirs(out_dir, exist_ok=True)
+        output_path = os.path.join(out_dir, "nativecam.ngc")
 
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(gcode)
 
-        # Try to load into LinuxCNC
         try:
             import linuxcnc
             c = linuxcnc.command()
@@ -697,17 +670,6 @@ class UserTab(QWidget):
                 LOG.warning("LinuxCNC interpreter not idle")
         except Exception as e:
             LOG.debug("Cannot load into LinuxCNC (not running?): %s", e)
-
-    def _on_auto_refresh_toggled(self, checked):
-        """Start/stop auto-refresh timer."""
-        if checked:
-            self._auto_refresh_timer.start(2000)  # Every 2 seconds
-        else:
-            self._auto_refresh_timer.stop()
-
-    def _on_auto_refresh(self):
-        """Auto-refresh: rebuild G-code and load."""
-        self._on_build()
 
     # --- Undo/redo ---
 

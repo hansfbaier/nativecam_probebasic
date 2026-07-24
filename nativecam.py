@@ -88,13 +88,13 @@ class UserTab(QWidget):
         self._undo_pos = -1          # Current undo position
         self._param_widgets = {}     # Current parameter editor widgets
 
-        # Preferences
+        # Preferences — sync with machine units
         self.pref = Preferences()
         self.pref.read("mill")
+        self._sync_units()
+        # Subscribe to unit changes so display stays in sync
         try:
-            metric = STATUS.stat.linear_units == 2  # metric
-            self.pref.set_machine_metric(metric)
-            self.pref.set_default_metric(metric)
+            STATUS.linear_units.signal.connect(self._on_units_changed)
         except Exception:
             pass
 
@@ -134,6 +134,28 @@ class UserTab(QWidget):
         self._auto_refresh_timer = QTimer(self)
         self._auto_refresh_timer.timeout.connect(self._on_auto_refresh)
         self.autoRefreshCheck.toggled.connect(self._on_auto_refresh_toggled)
+
+    # --- Units ---
+
+    def _sync_units(self):
+        """Sync preferences with current LinuxCNC machine linear units."""
+        try:
+            # STAT.linear_units: 1.0 = mm, 1/25.4 (~0.03937) = inch, 0.0 = N/A
+            metric = STATUS.stat.linear_units == 2
+            self.pref.set_machine_metric(metric)
+            self.pref.set_default_metric(metric)
+            LOG.debug("_sync_units: metric=%s (linear_units=%s)",
+                      metric, STATUS.stat.linear_units)
+        except Exception as e:
+            LOG.debug("_sync_units: failed: %s", e)
+
+    def _on_units_changed(self, value):
+        """Callback when machine linear units change mid-session."""
+        # value is the raw DataChannel signal payload (float)
+        metric = float(value) >= 0.5  # 1.0 for mm, ~0.039 for inch
+        LOG.debug("_on_units_changed: signal=%s metric=%s", value, metric)
+        self.pref.set_machine_metric(metric)
+        self.pref.set_default_metric(metric)
 
     # --- Catalog loading ---
 
@@ -189,6 +211,7 @@ class UserTab(QWidget):
         cat_name = catalog_map.get(text, "mill")
         self._load_catalog(cat_name)
         self.pref.read(cat_name)
+        self._sync_units()  # re-apply machine units after catalog re-read
 
     # --- Project management ---
 

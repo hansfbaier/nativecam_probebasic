@@ -146,6 +146,11 @@ class Preferences:
         global MACHINE_METRIC
         MACHINE_METRIC = metric
 
+    def set_default_metric(self, metric):
+        """Set whether user interface is displayed in metric units."""
+        global DEFAULT_METRIC
+        DEFAULT_METRIC = metric
+
     def toggle_units(self):
         """Toggle between metric and imperial display."""
         global DEFAULT_METRIC

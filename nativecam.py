@@ -92,9 +92,9 @@ class UserTab(QWidget):
         self.pref = Preferences()
         self.pref.read("mill")
         try:
-            self.pref.set_machine_metric(
-                STATUS.stat.linear_units == 2  # metric
-            )
+            metric = STATUS.stat.linear_units == 2  # metric
+            self.pref.set_machine_metric(metric)
+            self.pref.set_default_metric(metric)
         except Exception:
             pass
 
@@ -220,6 +220,8 @@ class UserTab(QWidget):
 
             # Add to project
             self._features.append(feature)
+            LOG.debug("_on_add_feature: added %s (id=%s, type=%s)",
+                      feature.get_name(), id(feature), feature.get_type())
             self._rebuild_project_tree()
             self._push_undo()
 
@@ -352,8 +354,12 @@ class UserTab(QWidget):
 
         feature = self._feature_items.get(id(current))
         if feature:
+            LOG.debug("_on_project_selection: selected %s (id=%s, params=%d)",
+                      feature.get_name(), id(feature), len(feature.param))
             self._current_feature = feature
             self._build_parameter_editor(feature)
+        else:
+            LOG.debug("_on_project_selection: feature not found for item id=%s", id(current))
 
     def _select_feature(self, feature):
         """Select a specific feature in the project tree."""
@@ -368,6 +374,7 @@ class UserTab(QWidget):
     def _build_parameter_editor(self, feature):
         """Build dynamic parameter editor widgets."""
         self._clear_parameter_editor()
+        self._current_feature = feature
         self._param_widgets = {}
         layout = self.paramLayout
 
@@ -528,8 +535,14 @@ class UserTab(QWidget):
         """Handle a parameter value change."""
         feature = self._current_feature
         if feature is None:
+            LOG.warning("_on_param_changed: _current_feature is None!")
             return
-        if param.set_value(new_value, feature):
+        old_raw = param.attr.get('value', '?')
+        ok = param.set_value(new_value, feature)
+        LOG.debug("_on_param_changed: %s %s old=%s new=%s ok=%s feat=%s",
+                  param.get_call(), param.get_name(), old_raw, new_value, ok,
+                  feature.get_name())
+        if ok:
             self._push_undo()
             if param.get_name() == 'Name' or param.get_call() == '#param_name':
                 self._rebuild_project_tree()
@@ -561,6 +574,12 @@ class UserTab(QWidget):
     def _on_build(self):
         """Generate G-code and show preview."""
         try:
+            # Log current feature values for debugging
+            for f in self._features:
+                for p in f.param:
+                    if p.get_type() in ('float', 'int', 'combo', 'bool'):
+                        LOG.debug("build: %s %s = %s", f.get_name(),
+                                  p.get_call(), p.attr.get('value', '?'))
             xml = self._features_to_xml()
             gcode = self.generator.generate(xml)
             self.gcodePreview.setPlainText(gcode)

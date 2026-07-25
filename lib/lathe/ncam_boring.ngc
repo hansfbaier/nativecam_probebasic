@@ -1,5 +1,5 @@
 (author : Fernand Veilleux)
-o<boring> sub
+o<ncam_boring> sub
 (CALL [#begin_x] [#end_x] [#begin_z] [#end_z] [#finishing_passes])
 
 	#<begin_z>          = #3
@@ -14,7 +14,7 @@ o<boring> sub
 	
 	/ G0 X#<end_x> Z#<begin_z>
 	/ G1 Z#<end_z>
-	/ o<boring> return
+	/ o<ncam_boring> return
 
 	o10 if [#<finishing_passes> GT 0]
 		#<cut_rough_total> = [#<end_x> - #<begin_x> - #<finishcut>]
@@ -75,4 +75,4 @@ o<boring> sub
 		o17 endif
 	o16 endif
 	
-	o<boring> endsub
+	o<ncam_boring> endsub

@@ -1,5 +1,5 @@
 (author : Fernand Veilleux)
-o<turning> sub
+o<ncam_turning> sub
 (CALL [#begin_x] [#end_x] [#begin_z] [#end_z] [#finishing_passes] [radius] [mode] [with_comp])
 ;(print,#1, #2,#3,#4,#5,#6,#7)
 
@@ -65,7 +65,7 @@ o<turning> sub
 		/ G1 Z#<radius_center>
 		/ G#<dir> X[#<begin_x>] Z[#<end_z>] I#<radius>
 	o51 endif
-	/ o<turning> return
+	/ o<ncam_turning> return
 	
 	G0 X[#<_wp_dia_od> + #<_X_rapid>]
 	G0 Z#<begin_z>
@@ -153,4 +153,4 @@ o<turning> sub
 	G40
 	G0 X[#<_wp_dia_od> + #<_X_rapid>] Z[#<end_z> + #<_X_clear> * #<z_factor>]
 	
-o<turning> endsub
+o<ncam_turning> endsub

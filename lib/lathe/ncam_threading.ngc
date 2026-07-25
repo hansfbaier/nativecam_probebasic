@@ -1,4 +1,4 @@
-o<threading> sub
+o<ncam_threading> sub
 (author : Fernand Veilleux)
 (CALL begin_z, end_z, units, major diameter, minor diameter, pitch, degression, init_depth, peak, taper, finish_passes, taper_angle, helix count)
 
@@ -72,7 +72,7 @@ o<threading> sub
 		/ G1 X#<s_x> Z#<z>
         / #<pass> = [#<pass> + 1]
 	/ o101 endwhile
-	/ o<threading> return
+	/ o<ncam_threading> return
 
 	o71 if [#<_x> LT [#<_wp_dia_od> + #<_X_rapid>]]
 		G0 X[#<_wp_dia_od> + #<_X_rapid>]
@@ -106,4 +106,4 @@ o<threading> sub
 	o97 endif
 	G0 X[#<_wp_dia_od> + #<_X_rapid>]
 	
-o<threading> endsub
+o<ncam_threading> endsub
